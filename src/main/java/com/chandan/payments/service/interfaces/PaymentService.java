@@ -1,6 +1,9 @@
 package com.chandan.payments.service.interfaces;
 
+import com.chandan.payments.pojo.CreateOrderReq;
+import com.chandan.payments.pojo.OrderResponse;
+
 public interface PaymentService {
 	
-	public String createOrder();
+	public OrderResponse createOrder(CreateOrderReq createOrderReq);
 }

@@ -1,8 +1,11 @@
 package com.chandan.payments.controller;
 
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.chandan.payments.pojo.CreateOrderReq;
+import com.chandan.payments.pojo.OrderResponse;
 import com.chandan.payments.service.interfaces.PaymentService;
 
 import jakarta.annotation.PostConstruct;
@@ -17,10 +20,10 @@ public class PaymentController {
 	private final PaymentService paymentService;
 	
 	@PostMapping("/payments")
-	public String createOrder() {
-		log.info("Creating order in PayPal provider service");
+	public OrderResponse createOrder(@RequestBody CreateOrderReq createOrderReq) {
+		log.info("Creating order in PayPal provider service | createOrderReq: {}", createOrderReq);
 		
-		String response = paymentService.createOrder();
+		OrderResponse response = paymentService.createOrder(createOrderReq);
 		log.info("Order creation response from service: {}", response);
 		
 		return response;
