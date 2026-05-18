@@ -14,7 +14,6 @@ import com.chandan.payments.http.HttpRequest;
 import com.chandan.payments.http.HttpServiceEngine;
 import com.chandan.payments.paypal.res.PaypalOAuthToken;
 import com.chandan.payments.util.JsonUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

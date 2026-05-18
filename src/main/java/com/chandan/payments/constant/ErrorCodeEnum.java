@@ -14,7 +14,8 @@ public enum ErrorCodeEnum {
     CANCEL_URL_REQUIRED ("30005", "Cancel URL is required field and cannot be null or blank"),
     PAYPAL_SERVICE_UNAVAILABLE ("30006", "Paypal service is currently unavailable. Please try again later."),
 	PAYPAL_ERROR ("30007", "<Error as Paypal>"),
-	PAYPAL_UNKNOWN_ERROR ("30008", "Unknown error occurred while processing Paypal request.");
+	PAYPAL_UNKNOWN_ERROR ("30008", "Unknown error occurred while processing Paypal request."),
+	RESOURCE_NOT_FOUND("30009", "Invalid URL. Please check and try again.");
 	
 	
 

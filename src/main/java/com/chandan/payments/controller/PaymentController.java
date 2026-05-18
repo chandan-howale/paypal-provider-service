@@ -1,5 +1,6 @@
 package com.chandan.payments.controller;
 
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,17 @@ public class PaymentController {
 		
 		return response;
 	}
+	
+	@PostMapping("/payments/{orderId}/capture")
+	public OrderResponse captureOrder(@PathVariable String orderId) {
+	    log.info("Capture order in PayPal provider service | orderId: {}", orderId);
+
+	    OrderResponse response = paymentService.captureOrder(orderId);
+
+	    log.info("Capture order response from service: {}", response);
+	    return response;
+	}
+
 
 	@PostConstruct
 	void init() {

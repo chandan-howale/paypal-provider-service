@@ -9,6 +9,7 @@ import com.chandan.payments.pojo.CreateOrderReq;
 import com.chandan.payments.pojo.OrderResponse;
 import com.chandan.payments.service.PaymentValidator;
 import com.chandan.payments.service.TokenService;
+import com.chandan.payments.service.helper.CaptureOrderHelper;
 import com.chandan.payments.service.helper.CreateOrderHelper;
 import com.chandan.payments.service.interfaces.PaymentService;
 
@@ -25,6 +26,8 @@ public class PaymentServiceImpl implements PaymentService {
 	private final TokenService tokenService;
 		
 	private final CreateOrderHelper createOrderHelper;
+	
+	private final CaptureOrderHelper captureOrderHelper;
 	
 	private final HttpServiceEngine httpServiceEngine;
 	
@@ -43,17 +46,41 @@ public class PaymentServiceImpl implements PaymentService {
 
 
 		HttpRequest httpRequest = createOrderHelper.prepareCreateOrderHttpRequest(createOrderReq, accessToken);
-		log.info("Prepared HttpRequest for Create Order call in createOrderHelper: {}", httpRequest);
+		log.info("Prepared HttpRequest for createOrder call in PaymentServiceImpl: {}", httpRequest);
 		
 		ResponseEntity<String> httpResponse = httpServiceEngine.makeHttpCall(httpRequest);
-		log.info("HTTP call response from HttpServiceEngine in TokenService: {}", httpResponse);
+		log.info("HTTP call response from HttpServiceEngine in PaymentServiceImpl: {}", httpResponse);
 
 		OrderResponse orderResponce = createOrderHelper.handlePaypalResponse(httpResponse);
 		
 		return orderResponce;
 	}
-
 	
+	//for captureOrder with type string
+    @Override
+    public OrderResponse captureOrder(String orderId) {
+        log.info("Capturing order in PaymentServiceImpl | orderId: {}", orderId);
+        
+        String accessToken = tokenService.getAccessToken();
+		log.info("Access Token retrieved: {}", accessToken);
+		
+		HttpRequest httpRequest = captureOrderHelper.prepareCaptureOrderHttpRequest(orderId, accessToken);
+		log.info("Prepared HttpRequest for captureOrder call in PaymentServiceImpl: {}", httpRequest);
+		
+		ResponseEntity<String> httpResponse = httpServiceEngine.makeHttpCall(httpRequest);
+		log.info("HTTP call response from HttpServiceEngine in PaymentServiceImpl: {}", httpResponse);
+
+		OrderResponse orderResponse = captureOrderHelper.handlePaypalResponse(httpResponse);
+		log.info("Final OrderResponse to be returned: {}", orderResponse);
+		
+//		String httpResponseBody = httpResponse.getBody();
+//		log.info("Capture order response body: {}", httpResponseBody);
+//		
+//		return httpResponseBody;
+		
+		return orderResponse;
+    }
+
 
 	@PostConstruct
 	public void init() {
