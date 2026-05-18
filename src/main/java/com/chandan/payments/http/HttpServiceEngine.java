@@ -1,8 +1,14 @@
 package com.chandan.payments.http;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
+
+import com.chandan.payments.constant.ErrorCodeEnum;
+import com.chandan.payments.exception.PaypalProviderException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,12 +41,37 @@ public class HttpServiceEngine {
 			
 			return httpResponse;
 			
-		} catch (Exception e) {
-			log.error("Exception occurred while making HTTP call in HttpServiceEngine: {}", e.getMessage(), e);
+		
+		} catch (HttpClientErrorException | HttpServerErrorException e) {
+			log.error("HTTP error occurred while making HTTP call in HttpServiceEngine: {}", e.getMessage(), e);
 			
-			throw new RuntimeException("Failed to make HTTP call in HttpServiceEngine" 
-					+ " :" + e.getMessage());
-		}
+			//if the error is gateway timeout or service unavailable from PayPal, throw PaypalProviderException with SERVICE_UNAVAILABLE
+			if (e.getStatusCode() == HttpStatus.GATEWAY_TIMEOUT || 
+					e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+				log.error("Service is unavailable or timed out!!");
+				
+				throw new PaypalProviderException(
+						ErrorCodeEnum.PAYPAL_SERVICE_UNAVAILABLE.getErrorCode(),
+						ErrorCodeEnum.PAYPAL_SERVICE_UNAVAILABLE.getErrorMessage(),
+						HttpStatus.SERVICE_UNAVAILABLE);
+			}
+			
+			String errorResponseBody = e.getResponseBodyAsString();
+			log.info("Error response body: {}", errorResponseBody);
+			
+			return ResponseEntity
+					.status(e.getStatusCode())
+					.body(errorResponseBody);
+			
+		} catch (Exception e) {
+		
+		log.error("Exception occurred while making HTTP call in HttpServiceEngine: {}", e.getMessage(), e);
+		
+		throw new PaypalProviderException(
+				ErrorCodeEnum.PAYPAL_SERVICE_UNAVAILABLE.getErrorCode(),
+				ErrorCodeEnum.PAYPAL_SERVICE_UNAVAILABLE.getErrorMessage(),
+				HttpStatus.SERVICE_UNAVAILABLE);
+	}
 		
 	}
 
