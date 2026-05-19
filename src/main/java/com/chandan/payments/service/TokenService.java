@@ -23,10 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TokenService {
 
-	private final HttpServiceEngine httpServiceEngine;
+	private static final int REDIS_ACCESS_TOKEN_EXPIRY_DIFF = 300;
 
-	// TODO: Implement Redis based caching for access token and take care of expiry
-	private static String accessToken;
+	private static final String PAYPAL_ACCESS_TOKEN = "PAYPAL_ACCESS_TOKEN";
+
+	private final HttpServiceEngine httpServiceEngine;
 
 	@Value("${paypal.client.id}")
 	String clientId;
@@ -39,6 +40,8 @@ public class TokenService {
 
 	private final JsonUtil jsonUtil;
 
+	private final RedisService redisService;
+	
 	/*
 	 * 
 	 * @return access token string
@@ -46,6 +49,11 @@ public class TokenService {
 	public String getAccessToken() {
 
 		log.info("Retrieving access token from TokenService");
+		
+		//redis based caching
+		String accessToken = redisService.getValue(PAYPAL_ACCESS_TOKEN);
+		
+		log.info("Access token retrieved from Redis cache: {}", accessToken);
 
 		if (accessToken != null) {
 			log.info("Access token found in cache: {}", accessToken);
@@ -79,8 +87,17 @@ public class TokenService {
 
 		PaypalOAuthToken token = jsonUtil.fromJson(tokenBody, PaypalOAuthToken.class);
 		log.info("Parsed OAuth token response using JsonUtil: {}", token);
-
+		
 		accessToken = token.getAccessToken();
+		
+		// Cache the access token in Redis with an expiry time (fetch from token response - 5 mins)
+		
+		redisService.setValueWithExpiry(
+				PAYPAL_ACCESS_TOKEN,
+				token.getAccessToken(), 
+				token.getExpiresIn() - REDIS_ACCESS_TOKEN_EXPIRY_DIFF);
+		
+		
 		log.info("Caching access token for future use..!");
 
 		return accessToken;
