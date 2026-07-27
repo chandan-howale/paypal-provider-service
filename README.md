@@ -11,42 +11,97 @@ This service acts as the **PayPal integration layer** in the payment-integration
 ### System Architecture
 
 ```
-┌─────────────────────────────┐
-│     payment-processing-     │
-│          service            │
-│   (Orchestrator/Router)     │
-└──────────┬──────────────────┘
-           │ REST calls
-           ▼
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│   paypal-provider-service   │────▶│      PayPal Sandbox API      │
-│     (This Microservice)     │◀────│      (OAuth + Orders)        │
-└──────────┬──────────────────┘     └─────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│         Netflix Eureka      │
-│     (Service Registry)      │
-└─────────────────────────────┘
+                         ┌──────────────────────────┐
+                         │     Netflix Eureka        │
+                         │    (Service Registry)     │
+                         │                           │
+                         │  paypal-provider-service  │
+                         │   registers on startup    │
+                         └────────────▲──────────────┘
+                                      │ discover
+                                      │
+┌──────────────────────────┐         │         ┌──────────────────────┐
+│  payment-processing-     │─────────┼────────▶│   Redis              │
+│  service                 │ calls   │         │  (OAuth token cache) │
+│  (Orchestrator)          │         │         └──────────────────────┘
+└──────────────────────────┘         │
+                                      │
+                         ┌────────────┴──────────────┐
+                         │  paypal-provider-service   │
+                         │     (This Service)         │
+                         │                            │
+                         │  • Creates PayPal orders    │
+                         │  • Captures PayPal orders   │
+                         │  • Manages OAuth tokens     │
+                         └────────────┬───────────────┘
+                                      │
+                                      ▼
+                         ┌──────────────────────────┐
+                         │   PayPal Sandbox API      │
+                         │  (OAuth + Orders + URLs)  │
+                         └──────────────────────────┘
 ```
 
-### Payment Flow
+**How it works:**
+1. **paypal-provider-service** registers itself with **Eureka** on startup, making it discoverable by other microservices.
+2. **payment-processing-service** discovers this service via Eureka and makes REST calls to create/capture PayPal orders.
+3. **Redis** is used to cache the PayPal OAuth access token (avoids requesting a new token on every API call).
+4. **PayPal Sandbox API** is the external service where actual order creation and capture happen.
+
+### Payment Flow — Step by Step
 
 ```
-payment-processing-service
-        │
-        ▼
-   POST /payments               ──▶ PayPal Create Order API
-        │                              │
-        ▼                              ▼
-   Returns: orderId,             PayPal returns approval
-   redirectUrl, paypalStatus     URL + order ID
-        │
-        ▼
-   POST /payments/{orderId}/capture  ──▶ PayPal Capture Order API
-                                              │
-                                              ▼
-                                        Funds captured
+Step 1: Create Order
+────────────────────────────────────────────────────────────────
+
+  payment-processing-service
+         │
+         │  POST /payments
+         │  { "amount": 10.00, "currencyCode": "USD",
+         │    "returnUrl": "...", "cancelUrl": "..." }
+         ▼
+  paypal-provider-service
+         │
+         │  ┌─────────────────────────────────────┐
+         │  │ 1. Validate request (amount, URLs)  │
+         │  │ 2. Get OAuth token (from Redis or   │
+         │  │    PayPal)                           │
+         │  │ 3. Build PayPal order request        │
+         │  │ 4. Call PayPal Create Order API      │
+         │  │ 5. Parse response                    │
+         │  └─────────────────────────────────────┘
+         │
+         ▼
+  Response:
+  {
+    "orderId": "5O190127TN364715T",
+    "paypalStatus": "PAYER_ACTION_REQUIRED",
+    "redirectUrl": "https://www.sandbox.paypal.com/..."
+  }
+
+Step 2: User Approves on PayPal (external browser flow)
+
+Step 3: Capture Order
+────────────────────────────────────────────────────────────────
+
+  payment-processing-service
+         │
+         │  POST /payments/5O190127TN364715T/capture
+         ▼
+  paypal-provider-service
+         │
+         │  ┌─────────────────────────────────────┐
+         │  │ 1. Get OAuth token                   │
+         │  │ 2. Call PayPal Capture Order API     │
+         │  │ 3. Parse response                    │
+         │  └─────────────────────────────────────┘
+         │
+         ▼
+  Response:
+  {
+    "orderId": "5O190127TN364715T",
+    "paypalStatus": "COMPLETED"
+  }
 ```
 
 ---
@@ -147,8 +202,29 @@ brew services start redis
 
 ### 4. Run the Application
 
+#### Option A: Using IntelliJ IDEA (Recommended)
+
+1. Open the project folder (`paypal-provider-eureka-sr-impl`) in IntelliJ IDEA.
+2. IntelliJ automatically detects the Maven project — wait for dependencies to load.
+3. Navigate to `src/main/java/com/chandan/payments/PaypalProviderServiceApplication.java`.
+4. Right-click → **Run 'PaypalProviderServiceApplication'** (or click the green triangle next to the class).
+5. The service starts on **port 8083**.
+
+> **Note for IntelliJ users:** If Lombok annotations aren't working, enable annotation processing:
+> `Settings → Build, Execution, Deployment → Compiler → Annotation Processors → Enable annotation processing`
+
+#### Option B: Using VS Code
+
+1. Install extensions: **Extension Pack for Java** (Microsoft) + **Spring Boot Extension Pack**.
+2. Open the project folder in VS Code.
+3. Press `F5` or go to **Run → Start Debugging**.
+4. Select "Java" when prompted.
+5. The service starts on **port 8083**.
+
+#### Option C: Using Maven (Command Line)
+
 ```bash
-# Build
+# Build the project first
 mvn clean install -DskipTests
 
 # Run with local profile (default)
