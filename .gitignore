@@ -55,3 +55,6 @@ Thumbs.db
 
 # Environment variables - credentials
 .env
+
+# Claude Code archetype file
+CLAUDE.md
